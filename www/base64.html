@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Layout</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            height: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        td {
+            border: 1px solid #000;
+            padding: 10px;
+        }
+        /* 第一行自适应高度 */
+        tr:first-child td {
+            height: auto;
+        }
+        /* 第二行高度填充剩余空间 */
+        tr:nth-child(2) {
+            height: 100%;
+        }
+        /* 第二列内容显示后自适应宽度 */
+        td:nth-child(2) {
+            /* white-space: nowrap; */
+            width: 3ch;
+        }
+        /* 第一列和第三列尽可能利用空间 */
+        td:first-child, td:last-child {
+            width: 1fr;
+        }
+        /* textarea 占满整个 td 空间 */
+        textarea {
+            width: 100%;
+            height: 100%;
+            resize: none;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+    </style>
+
+<script>
+    // UTF-8编码为Base64
+    function utf8ToB64(str) {
+        return window.btoa(unescape(encodeURIComponent(str)));
+    }
+
+    // Base64解码为UTF-8
+    function b64ToUtf8(str) {
+        return decodeURIComponent(escape(window.atob(str)));
+    }
+
+    $(document).ready(function() {
+        // 编码功能
+        $('#encode-btn').click(function() {
+            const inputText = $('#decode-input').val();
+            const decodeOption = $('input[name="decode-option"]:checked').val();
+            let encodedText = '';
+
+            if (decodeOption === 'line') {
+                // 逐行编码
+                const lines = inputText.split('\n');
+                encodedText = lines.map(line => utf8ToB64(line.trim())).join('\n');
+            } else {
+                // 整体编码
+                encodedText = utf8ToB64(inputText);
+            }
+
+            $('#encode-input').val(encodedText);
+            $('#error-message').text(''); // 清空错误消息
+        });
+
+        // 解码功能
+        $('#decode-btn').click(function() {
+            const base64Text = $('#encode-input').val();
+            const decodeOption = $('input[name="decode-option"]:checked').val();
+            let decodedText = '';
+
+            if (decodeOption === 'line') {
+                // 逐行解码
+                const lines = base64Text.split('\n');
+                decodedText = lines.map(line => {
+                    try {
+                        return b64ToUtf8(line.trim()); // 使用自定义的b64ToUtf8进行解码
+                    } catch (e) {
+                        return '无效的Base64编码'; // 错误提示
+                    }
+                }).join('\n');
+            } else {
+                // 整体解码
+                try {
+                    decodedText = b64ToUtf8(base64Text); // 使用自定义的b64ToUtf8进行解码
+                } catch (e) {
+                    decodedText = '无效的Base64编码'; // 错误提示
+                }
+            }
+
+            $('#decode-input').val(decodedText);
+            $('#error-message').text(''); // 清空错误消息
+        });
+    });
+</script>
+</head>
+<body>
+    <table>
+        <tr>
+            <td>Base64 Code</td>
+            <td rowspan="3">
+                <button id="decode-btn">=></button>
+                <button id="encode-btn"><=</button>
+            
+            </td>
+            <td>Decoded</td>
+        </tr>
+        <tr>
+            <td><textarea id="encode-input"></textarea></td>
+            
+            <td><textarea id="decode-input"></textarea></td>
+        </tr>
+        <tr>
+            <td>some config</td>
+            <td>some config</td>
+        </tr>
+    </table>
+</body>
+</html>
