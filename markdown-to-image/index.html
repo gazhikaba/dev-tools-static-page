@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Markdown 转图片分享</title>
+    <!-- 引入外部依赖 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- 自定义配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#6366F1',
+                        'read-bg': '#F5F7FA'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            /* 窄宽度渲染样式：一行17-18字 */
+            .markdown-render {
+                @apply w-full h-auto p-4 bg-read-bg rounded-lg shadow-sm text-gray-800 leading-normal;
+                line-height: 1.7;
+                font-size: 16px; /* 固定字号，保证17-18字/行 */
+                max-width: 320px; /* 核心：窄宽度，适配17-18中文字/行 */
+            }
+            /* 六层标题样式（适配窄宽度） */
+            .markdown-render h1 { @apply text-2xl font-bold text-gray-900 mb-3; }
+            .markdown-render h2 { @apply text-xl font-bold text-gray-900 mb-3; }
+            .markdown-render h3 { @apply text-lg font-bold text-gray-900 mb-3; }
+            .markdown-render h4 { @apply text-base font-bold text-gray-900 mb-3; }
+            .markdown-render h5 { @apply text-sm font-bold text-gray-900 mb-3; }
+            .markdown-render h6 { @apply text-xs font-bold text-gray-500 mb-3; }
+            /* 其他Markdown样式 */
+            .markdown-render p { @apply mb-3; }
+            .markdown-render ul { @apply list-disc pl-5 mb-3; }
+            .markdown-render ol { @apply list-decimal pl-5 mb-3; }
+            .markdown-render strong { @apply font-bold; }
+            .markdown-render em { @apply italic; }
+            .markdown-render a { @apply text-primary underline; }
+            .markdown-render code { @apply bg-gray-200 px-1 py-0.5 rounded text-sm; }
+            .markdown-render pre { @apply bg-gray-200 p-2 rounded mb-3 overflow-x-auto; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+<div class="max-w-lg mx-auto">
+    <!-- 标题 -->
+    <h1 class="text-[clamp(1.2rem,3vw,2rem)] font-bold text-gray-800 mb-4 text-center">Markdown 转图片</h1>
+
+    <!-- 核心布局：窄编辑区 + 侧边操作区 -->
+    <div class="flex flex-col sm:flex-row gap-4 mb-6 items-start">
+        <!-- 左侧：窄编辑/渲染区（固定320px宽度 + 长高度） -->
+        <div class="relative w-full sm:w-320px min-w-[320px]">
+            <label class="block text-gray-700 font-medium mb-2 text-sm">Markdown 编辑/预览（1-6级标题）</label>
+            <!-- 编辑框：长高度（70vh）+ 窄宽度 -->
+            <textarea
+                    id="markdown-input"
+                    class="w-full min-h-[70vh] h-auto px-4 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-none text-gray-800 bg-white absolute top-0 left-0 z-10 font-sans text-base"
+                    placeholder="输入Markdown文本（一行17-18字）&#10;# 一级标题&#10;## 二级标题&#10;### 三级标题&#10;#### 四级标题&#10;##### 五级标题&#10;###### 六级标题&#10;**加粗** *斜体*&#10;- 列表项1&#10;- 列表项2"
+            ></textarea>
+            <!-- 渲染区：匹配窄宽度 + 自适应高度 -->
+            <div id="markdown-render" class="w-full min-h-[70vh] border border-gray-300 rounded-lg absolute top-0 left-0 z-0 markdown-render cursor-text">
+                <p class="text-gray-500 text-center py-16 text-sm">输入文本后点击空白处预览</p>
+            </div>
+        </div>
+
+        <!-- 右侧：操作区（垂直排列 + 紧凑宽度） -->
+        <div class="w-full sm:w-56 flex flex-col gap-3">
+            <button id="save-btn" class="w-full bg-secondary text-white py-2.5 px-3 rounded-lg hover:bg-secondary/90 active:bg-secondary/80 transition-colors font-medium text-sm">
+                保存为图片
+            </button>
+            <button id="clear-btn" class="w-full bg-gray-500 text-white py-2.5 px-3 rounded-lg hover:bg-gray-600 active:bg-gray-700 transition-colors font-medium text-sm">
+                清空内容
+            </button>
+
+            <!-- 图片预览区（窄宽度适配） -->
+            <div id="image-result" class="hidden mt-2 flex-1">
+                <label class="block text-gray-700 font-medium mb-2 text-sm">生成的图片</label>
+                <div class="border border-gray-300 rounded-lg p-2 bg-white shadow-sm">
+                    <img id="result-image" class="w-full rounded" alt="生成的图片">
+                </div>
+                <a id="download-link" class="block w-full mt-3 bg-green-600 text-white py-2.5 px-3 rounded-lg text-center hover:bg-green-700 active:bg-green-800 transition-colors font-medium text-sm" download="markdown分享图.png">
+                    下载图片
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示信息 -->
+    <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 text-sm">
+        操作成功！
+    </div>
+</div>
+
+<script>
+    // 获取DOM元素
+    const markdownInput = document.getElementById('markdown-input');
+    const markdownRender = document.getElementById('markdown-render');
+    const saveBtn = document.getElementById('save-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const imageResult = document.getElementById('image-result');
+    const resultImage = document.getElementById('result-image');
+    const downloadLink = document.getElementById('download-link');
+    const toast = document.getElementById('toast');
+
+    // 初始化：编辑框显示 + 长高度
+    markdownInput.style.display = 'block';
+    markdownRender.style.display = 'none';
+    markdownInput.style.minHeight = '70vh'; // 强制长高度
+
+    // 渲染Markdown（适配窄宽度）
+    function renderMarkdown() {
+        const markdownText = markdownInput.value.trim();
+        if (!markdownText) {
+            markdownRender.innerHTML = '<p class="text-gray-500 text-center py-16 text-sm">输入文本后点击空白处预览</p>';
+            return;
+        }
+        const html = marked.parse(markdownText);
+        markdownRender.innerHTML = html;
+        // 同步高度：编辑框匹配渲染区高度
+        markdownInput.style.height = markdownRender.offsetHeight + 'px';
+    }
+
+    // 切换编辑模式（长高度保持）
+    function switchToEditMode() {
+        markdownInput.style.display = 'block';
+        markdownRender.style.display = 'none';
+        markdownInput.focus();
+        // 确保编辑框高度不低于70vh
+        if (markdownInput.offsetHeight < window.innerHeight * 0.7) {
+            markdownInput.style.height = '70vh';
+        }
+    }
+
+    // 切换预览模式
+    function switchToPreviewMode() {
+        markdownInput.style.display = 'none';
+        markdownRender.style.display = 'block';
+        renderMarkdown();
+    }
+
+    // 绑定事件
+    markdownInput.addEventListener('focus', switchToEditMode);
+    markdownInput.addEventListener('blur', switchToPreviewMode);
+    markdownRender.addEventListener('click', switchToEditMode);
+    // 输入时自适应高度（但不低于70vh）
+    markdownInput.addEventListener('input', () => {
+        renderMarkdown();
+        markdownInput.style.height = 'auto';
+        const minHeight = window.innerHeight * 0.7;
+        markdownInput.style.height = (markdownInput.scrollHeight < minHeight ? minHeight : markdownInput.scrollHeight) + 'px';
+    });
+
+    // 保存为图片（适配窄宽度）
+    async function saveAsImage() {
+        renderMarkdown();
+        showToast('正在生成图片...');
+        try {
+            const canvas = await html2canvas(markdownRender, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#F5F7FA',
+                windowWidth: 320, // 匹配窄宽度
+                windowHeight: markdownRender.offsetHeight
+            });
+            const imageUrl = canvas.toDataURL('image/png');
+            resultImage.src = imageUrl;
+            downloadLink.href = imageUrl;
+            imageResult.classList.remove('hidden');
+            showToast('图片生成成功！');
+        } catch (error) {
+            console.error('生成图片失败:', error);
+            showToast('生成图片失败，请重试');
+        }
+    }
+
+    // 清空内容（重置长高度）
+    function clearContent() {
+        markdownInput.value = '';
+        markdownInput.style.height = '70vh'; // 重置为70vh
+        renderMarkdown();
+        imageResult.classList.add('hidden');
+        showToast('内容已清空');
+        switchToEditMode();
+    }
+
+    // 提示框
+    function showToast(message) {
+        toast.textContent = message;
+        toast.classList.remove('opacity-0');
+        toast.classList.add('opacity-100');
+        setTimeout(() => {
+            toast.classList.remove('opacity-100');
+            toast.classList.add('opacity-0');
+        }, 2000);
+    }
+
+    // 窗口大小变化时重置编辑框高度
+    window.addEventListener('resize', () => {
+        if (markdownInput.style.display === 'block') {
+            markdownInput.style.minHeight = '70vh';
+        }
+    });
+
+    // 按钮事件
+    saveBtn.addEventListener('click', saveAsImage);
+    clearBtn.addEventListener('click', clearContent);
+
+    // 初始渲染
+    renderMarkdown();
+</script>
+</body>
+</html>
